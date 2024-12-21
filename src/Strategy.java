@@ -7,7 +7,7 @@ public class Strategy {
 
     public Strategy() {
         rules = new ArrayList<>();
-        optimalSpeed = 5; // Начальная скорость
+        optimalSpeed = 15; // Начальная скорость
     }
 
     public void addRule(StrategyRule rule) {

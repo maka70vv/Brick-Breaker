@@ -2,86 +2,68 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AITrainer {
-    private List<ActionData> trainingData; // Список данных для обучения
-    private List<PerformanceData> performanceData; // Результаты работы ИИ
-    private boolean trainingMode = false; // Флаг для режима обучения
-    private Strategy currentStrategy; // Текущая стратегия
-
-    private long startTime; // Время начала текущей игры
-    private int currentScore; // Очки в текущей игре
+    private int bestDirection; // Лучшее направление (-1: влево, 1: вправо)
+    private double learningRate = 0.1; // Скорость обучения
+    private List<Session> sessions; // История действий
 
     public AITrainer() {
-        trainingData = new ArrayList<>();
-        performanceData = new ArrayList<>();
-        currentStrategy = new Strategy();
-        resetGameSession();
+        this.bestDirection = 0; // Начальное значение
+        this.sessions = new ArrayList<>();
     }
 
-    // Сброс текущей игровой сессии
-    public void resetGameSession() {
-        startTime = System.currentTimeMillis();
-        currentScore = 0;
-    }
-
-    // Запись результата игры (ИИ)
-    public void recordPerformance(int finalScore) {
-        long endTime = System.currentTimeMillis();
-        long duration = endTime - startTime;
-        performanceData.add(new PerformanceData(finalScore, duration));
+    // Запись данных о сессии
+    public void recordSession(int score, long timeTaken) {
+        sessions.add(new Session(score, timeTaken));
         optimizeStrategy();
     }
 
-    // Метод для записи действий
-    public void recordAction(int playerX, int ballX, int ballY, int ballXDir, int ballYDir) {
-        if (trainingMode) {
-            trainingData.add(new ActionData(playerX, ballX, ballY, ballXDir, ballYDir));
-        }
-    }
-
-    // Метод для включения режима обучения
-    public void enableTrainingMode() {
-        trainingMode = true;
-    }
-
-    // Метод для отключения режима обучения
-    public void disableTrainingMode() {
-        trainingMode = false;
-    }
-
-    // Обучение модели на собранных данных
-    public void trainModel() {
-        for (ActionData data : trainingData) {
-            if (data.getBallY() > 300 && data.getBallXDir() < 0) {
-                currentStrategy.addRule(new StrategyRule(-1, 5)); // Движение влево
-            } else {
-                currentStrategy.addRule(new StrategyRule(1, 5)); // Движение вправо
-            }
-        }
-    }
-
-    // Оптимизация стратегии на основе результатов
-    private void optimizeStrategy() {
-        if (!performanceData.isEmpty()) {
-            // Анализ производительности
-            PerformanceData bestPerformance = performanceData.stream()
-                    .min((a, b) -> Long.compare(a.getDuration(), b.getDuration()))
-                    .orElse(null);
-
-            if (bestPerformance != null) {
-                // Усовершенствуйте стратегию, исходя из лучшей производительности
-                currentStrategy.setOptimalSpeed((int) (bestPerformance.getScore() / (bestPerformance.getDuration() / 1000.0)));
-            }
-        }
-    }
-
-    // Возвращает текущую стратегию
-    public Strategy getCurrentStrategy() {
-        return currentStrategy;
-    }
-
-    // Возвращает следующее действие на основе стратегии
+    // Метод выбора действия
     public int getNextAction(int playerX, int ballX, int ballY, int ballXDir, int ballYDir) {
-        return currentStrategy.getAction(playerX, ballX, ballY, ballXDir, ballYDir);
+        // Простая логика: двигаться в сторону мяча
+        if (ballX < playerX) {
+            return -1; // Влево
+        } else if (ballX > playerX) {
+            return 1; // Вправо
+        } else {
+            return 0; // Оставаться на месте
+        }
     }
 
+    // Оптимизация стратегии
+    private void optimizeStrategy() {
+        // Вычисляем среднее время за последние сессии
+        double averageTime = sessions.stream()
+                .mapToLong(Session::getTimeTaken)
+                .average()
+                .orElse(0);
+
+        // Ускоряем движение, если среднее время слишком велико
+        if (averageTime > 15) {
+            learningRate += 0.01; // Увеличиваем скорость обучения
+        } else {
+            learningRate -= 0.01; // Замедляем обучение
+        }
+
+        // Ограничиваем значение скорости обучения
+        learningRate = Math.max(0.05, Math.min(0.2, learningRate));
+    }
+
+    // Внутренний класс для хранения данных сессии
+    private static class Session {
+        private final int score; // Очки
+        private final long timeTaken; // Затраченное время
+
+        public Session(int score, long timeTaken) {
+            this.score = score;
+            this.timeTaken = timeTaken;
+        }
+
+        public int getScore() {
+            return score;
+        }
+
+        public long getTimeTaken() {
+            return timeTaken;
+        }
+    }
 }

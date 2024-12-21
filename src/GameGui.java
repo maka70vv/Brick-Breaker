@@ -8,7 +8,7 @@ import java.awt.event.KeyListener;
 public class GameGui extends JPanel implements KeyListener, ActionListener {
     private boolean play = false;
     private int score = 0;
-    private int totalBricks = 28;
+    private int totalBricks = 21; // Количество кирпичей на поле
     private Timer time;
     private int delay = 1;
 
@@ -21,10 +21,10 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     private int ballposY = 350;
     private int ballXdir = -1;
     private int ballYdir = -2;
-    private boolean useAI = true; // Флаг для управления ИИ
+    private boolean useAI = false; // Флаг для управления ИИ
     private Map map;
 
-    private AITrainer aiTrainer; // Объект обучения ИИ
+    private AITrainer aiTrainer; // Тренер ИИ
 
     public GameGui() {
         // Инициализация AITrainer
@@ -32,14 +32,16 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
 
         // Таймер для обработки движения платформы
         moveTimer = new Timer(10, e -> {
-            if (moveLeft) {
-                if (playerX > 0) {
-                    playerX -= 15; // Скорость движения влево
+            if (!useAI) { // Только для ручного управления
+                if (moveLeft) {
+                    if (playerX > 0) {
+                        playerX -= 15; // Скорость движения влево
+                    }
                 }
-            }
-            if (moveRight) {
-                if (playerX < 540) {
-                    playerX += 15; // Скорость движения вправо
+                if (moveRight) {
+                    if (playerX < 540) {
+                        playerX += 15; // Скорость движения вправо
+                    }
                 }
             }
             repaint();
@@ -47,7 +49,7 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
         moveTimer.start();
 
         addKeyListener(this);
-        map = new Map(3, 7);
+        map = new Map(3, 7); // Инициализация карты с кирпичами
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);
         time = new Timer(delay, this);
@@ -55,54 +57,54 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     }
 
     public void paint(Graphics g) {
+        // Фон
         g.setColor(Color.black);
         g.fillRect(1, 1, 600, 592);
 
+        // Отрисовка кирпичей
         map.draw((Graphics2D) g);
 
+        // Границы
         g.setColor(Color.black);
         g.fillRect(0, 0, 3, 592);
         g.fillRect(0, 0, 692, 3);
         g.fillRect(691, 0, 3, 592);
 
+        // Очки
         g.setColor(Color.white);
         g.setFont(new Font("serif", Font.BOLD, 20));
-        g.drawString("" + score, 450, 30);
+        g.drawString("Score: " + score, 450, 30);
 
+        // Платформа
         g.setColor(Color.blue);
         g.fillRect(playerX, 550, 50, 8);
 
+        // Мяч
         g.setColor(Color.white);
         g.fillOval(ballposX, ballposY, 20, 20);
 
+        // Сообщение о победе
         if (totalBricks <= 0) {
             play = false;
             ballXdir = 0;
             ballYdir = 0;
             g.setColor(Color.red);
+            g.setFont(new Font("serif", Font.BOLD, 30));
+            g.drawString("You Won!", 190, 300);
             g.setFont(new Font("serif", Font.BOLD, 20));
-            g.drawString("You Won ", 190, 300);
-            g.setFont(new Font("serif", Font.BOLD, 20));
-            g.drawString("Press Enter to Restart ", 280, 350);
-
-            if (useAI) {
-                aiTrainer.recordPerformance(score); // Запись результатов ИИ
-            }
+            g.drawString("Press Enter to Restart", 190, 350);
         }
 
+        // Сообщение о проигрыше
         if (ballposY > 570) {
             play = false;
             ballXdir = 0;
             ballYdir = 0;
             g.setColor(Color.red);
-            g.setFont(new Font("serif", Font.BOLD, 20));
+            g.setFont(new Font("serif", Font.BOLD, 30));
             g.drawString("Game Over", 190, 300);
             g.setFont(new Font("serif", Font.BOLD, 20));
-            g.drawString("Press Enter to Restart ", 190, 350);
-
-            if (useAI) {
-                aiTrainer.recordPerformance(score); // Запись результатов ИИ
-            }
+            g.drawString("Press Enter to Restart", 190, 350);
         }
 
         g.dispose();
@@ -112,18 +114,16 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     public void actionPerformed(ActionEvent e) {
         time.start();
         if (play) {
-            // Логика ИИ или записи действий игрока
             if (useAI) {
-                controlPaddleWithAI();
-            } else {
-                aiTrainer.recordAction(playerX, ballposX, ballposY, ballXdir, ballYdir);
+                controlPaddleWithAI(); // Управление платформой через ИИ
             }
 
-            // Логика столкновения мяча с платформой и блоками
-            if (new Rectangle(ballposX, ballposY, 20, 20).intersects(new Rectangle(playerX, 550, 100, 8))) {
+            // Логика столкновения платформы с мячом
+            if (new Rectangle(ballposX, ballposY, 20, 20).intersects(new Rectangle(playerX, 550, 50, 8))) {
                 ballYdir = -ballYdir;
             }
 
+            // Логика столкновения мяча с кирпичами
             A:
             for (int i = 0; i < map.map.length; i++) {
                 for (int j = 0; j < map.map[0].length; j++) {
@@ -135,14 +135,14 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
 
                         Rectangle rect = new Rectangle(brickX, brickY, brickWidth, brickHeight);
                         Rectangle ballRect = new Rectangle(ballposX, ballposY, 20, 20);
-                        Rectangle brickRect = rect;
 
-                        if (ballRect.intersects(brickRect)) {
-                            map.setBrickValue(0, i, j);
-                            totalBricks--;
-                            score += 5;
+                        if (ballRect.intersects(rect)) {
+                            map.setBrickValue(0, i, j); // Убираем кирпич
+                            totalBricks--; // Уменьшаем количество оставшихся кирпичей
+                            score += 5; // Добавляем очки
 
-                            if (ballposX + 19 <= brickRect.x || ballposX + 1 >= brickRect.x + brickRect.width) {
+                            // Меняем направление мяча
+                            if (ballposX + 19 <= rect.x || ballposX + 1 >= rect.x + rect.width) {
                                 ballXdir = -ballXdir;
                             } else {
                                 ballYdir = -ballYdir;
@@ -153,10 +153,11 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
                 }
             }
 
-            // Логика движения мяча
+            // Движение мяча
             ballposX += ballXdir;
             ballposY += ballYdir;
 
+            // Отражение мяча от стен
             if (ballposX < 0) {
                 ballXdir = -ballXdir;
             }
@@ -166,47 +167,23 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
             if (ballposX > 560) {
                 ballXdir = -ballXdir;
             }
-
-            // Проверка завершения игры
-            if (totalBricks <= 0) {
-                play = false;
-                ballXdir = 0;
-                ballYdir = 0;
-            }
         }
         repaint();
     }
 
-
     private void controlPaddleWithAI() {
-        int action = aiTrainer.getNextAction(playerX, ballposX, ballposY, ballXdir, ballYdir);
-        int speed = aiTrainer.getCurrentStrategy().getOptimalSpeed();
-
+        int action = aiTrainer.getNextAction(playerX, ballposX, ballposY, ballXdir, ballYdir); // Действие от ИИ
         if (action == -1 && playerX > 0) {
-            playerX -= speed; // Движение влево
+            playerX -= 5; // Движение влево
         } else if (action == 1 && playerX < 540) {
-            playerX += speed; // Движение вправо
+            playerX += 5; // Движение вправо
         }
 
-        // Ограничиваем платформу в пределах игрового поля
+        // Ограничение платформы в пределах поля
         if (playerX < 0) {
             playerX = 0;
         } else if (playerX > 540) {
             playerX = 540;
-        }
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-            moveRight = false;
-        }
-        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-            moveLeft = false;
         }
     }
 
@@ -230,16 +207,28 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
                 ballYdir = -2;
                 playerX = 310;
                 score = 0;
-                totalBricks = 28;
-                map = new Map(3, 7);
+                totalBricks = 21; // Сброс количества кирпичей
+                map = new Map(3, 7); // Пересоздание карты
                 repaint();
-
-                aiTrainer.resetGameSession(); // Сброс данных перед новой игрой
             }
         }
 
         if (e.getKeyCode() == KeyEvent.VK_A) {
             useAI = !useAI; // Включить или отключить ИИ
         }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            moveRight = false;
+        }
+        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+            moveLeft = false;
+        }
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
     }
 }
