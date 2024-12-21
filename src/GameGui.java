@@ -16,7 +16,6 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     private boolean moveRight = false;
     private Timer moveTimer;
 
-
     private int playerX = 300;
     private int ballposX = 120;
     private int ballposY = 350;
@@ -25,7 +24,13 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     private boolean useAI = true; // Флаг для управления ИИ
     private Map map;
 
+    private AITrainer aiTrainer; // Объект обучения ИИ
+
     public GameGui() {
+        // Инициализация AITrainer
+        aiTrainer = new AITrainer();
+
+        // Таймер для обработки движения платформы
         moveTimer = new Timer(10, e -> {
             if (moveLeft) {
                 if (playerX > 0) {
@@ -40,7 +45,6 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
             repaint();
         });
         moveTimer.start();
-
 
         addKeyListener(this);
         map = new Map(3, 7);
@@ -80,6 +84,10 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
             g.drawString("You Won ", 190, 300);
             g.setFont(new Font("serif", Font.BOLD, 20));
             g.drawString("Press Enter to Restart ", 280, 350);
+
+            if (useAI) {
+                aiTrainer.recordPerformance(score); // Запись результатов ИИ
+            }
         }
 
         if (ballposY > 570) {
@@ -91,6 +99,10 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
             g.drawString("Game Over", 190, 300);
             g.setFont(new Font("serif", Font.BOLD, 20));
             g.drawString("Press Enter to Restart ", 190, 350);
+
+            if (useAI) {
+                aiTrainer.recordPerformance(score); // Запись результатов ИИ
+            }
         }
 
         g.dispose();
@@ -100,10 +112,14 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     public void actionPerformed(ActionEvent e) {
         time.start();
         if (play) {
+            // Логика ИИ или записи действий игрока
             if (useAI) {
                 controlPaddleWithAI();
+            } else {
+                aiTrainer.recordAction(playerX, ballposX, ballposY, ballXdir, ballYdir);
             }
 
+            // Логика столкновения мяча с платформой и блоками
             if (new Rectangle(ballposX, ballposY, 20, 20).intersects(new Rectangle(playerX, 550, 100, 8))) {
                 ballYdir = -ballYdir;
             }
@@ -137,6 +153,7 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
                 }
             }
 
+            // Логика движения мяча
             ballposX += ballXdir;
             ballposY += ballYdir;
 
@@ -149,20 +166,29 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
             if (ballposX > 560) {
                 ballXdir = -ballXdir;
             }
+
+            // Проверка завершения игры
+            if (totalBricks <= 0) {
+                play = false;
+                ballXdir = 0;
+                ballYdir = 0;
+            }
         }
         repaint();
     }
 
-    private void controlPaddleWithAI() {
-        int paddleCenter = playerX + 25;
-        int ballFutureX = ballposX + ballXdir * 10;
 
-        if (paddleCenter < ballFutureX) {
-            playerX += Math.min(10, ballFutureX - paddleCenter);
-        } else if (paddleCenter > ballFutureX) {
-            playerX -= Math.min(10, paddleCenter - ballFutureX);
+    private void controlPaddleWithAI() {
+        int action = aiTrainer.getNextAction(playerX, ballposX, ballposY, ballXdir, ballYdir);
+        int speed = aiTrainer.getCurrentStrategy().getOptimalSpeed();
+
+        if (action == -1 && playerX > 0) {
+            playerX -= speed; // Движение влево
+        } else if (action == 1 && playerX < 540) {
+            playerX += speed; // Движение вправо
         }
 
+        // Ограничиваем платформу в пределах игрового поля
         if (playerX < 0) {
             playerX = 0;
         } else if (playerX > 540) {
@@ -184,7 +210,6 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
         }
     }
 
-
     @Override
     public void keyPressed(KeyEvent e) {
         if (!useAI) {
@@ -205,9 +230,11 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
                 ballYdir = -2;
                 playerX = 310;
                 score = 0;
-                totalBricks = 21;
+                totalBricks = 28;
                 map = new Map(3, 7);
                 repaint();
+
+                aiTrainer.resetGameSession(); // Сброс данных перед новой игрой
             }
         }
 
