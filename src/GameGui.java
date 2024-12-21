@@ -12,6 +12,11 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     private Timer time;
     private int delay = 1;
 
+    private boolean moveLeft = false;
+    private boolean moveRight = false;
+    private Timer moveTimer;
+
+
     private int playerX = 300;
     private int ballposX = 120;
     private int ballposY = 350;
@@ -21,6 +26,22 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
     private Map map;
 
     public GameGui() {
+        moveTimer = new Timer(10, e -> {
+            if (moveLeft) {
+                if (playerX > 0) {
+                    playerX -= 15; // Скорость движения влево
+                }
+            }
+            if (moveRight) {
+                if (playerX < 540) {
+                    playerX += 15; // Скорость движения вправо
+                }
+            }
+            repaint();
+        });
+        moveTimer.start();
+
+
         addKeyListener(this);
         map = new Map(3, 7);
         setFocusable(true);
@@ -155,28 +176,26 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+            moveRight = false;
+        }
+        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+            moveLeft = false;
+        }
     }
+
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-            if (!useAI) {
-                if (playerX >= 500) {
-                    playerX = 500;
-                } else {
-                    moveRight();
-                }
+        if (!useAI) {
+            if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                moveRight = true;
+            }
+            if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+                moveLeft = true;
             }
         }
-        if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-            if (!useAI) {
-                if (playerX <= 10) {
-                    playerX = 10;
-                } else {
-                    moveLeft();
-                }
-            }
-        }
+
         if (e.getKeyCode() == KeyEvent.VK_ENTER) {
             if (!play) {
                 play = true;
@@ -191,18 +210,9 @@ public class GameGui extends JPanel implements KeyListener, ActionListener {
                 repaint();
             }
         }
+
         if (e.getKeyCode() == KeyEvent.VK_A) {
             useAI = !useAI; // Включить или отключить ИИ
         }
-    }
-
-    private void moveRight() {
-        play = true;
-        playerX += 20;
-    }
-
-    private void moveLeft() {
-        play = true;
-        playerX -= 20;
     }
 }
